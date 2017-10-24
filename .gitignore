@@ -1,3 +1,5 @@
 result_images/*
 images/*
+data/*
+segmented_img/*
 .ipynb_checkpoints/
