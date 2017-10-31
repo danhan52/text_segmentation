@@ -2,4 +2,6 @@ result_images/*
 images/*
 data/*
 segmented_img/*
+line_img/*
+*.pyc
 .ipynb_checkpoints/
