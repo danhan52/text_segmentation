@@ -1,7 +1,7 @@
-result_images/*
-images/*
 data/*
-segmented_img/*
-line_img/*
+*.csv
+*.jpg
+*.jpeg
+*.png
 *.pyc
 .ipynb_checkpoints/

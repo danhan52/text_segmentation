@@ -28,6 +28,15 @@ def readImg(filename, plotIt = False):
         plt.show()
     return let, grey
 
+# save an image locally from online source
+def readAndSave(filename, toFolder, newFn, imType = ".jpg"):
+    # read in image file
+    if "https://" in filename:
+        filename = cStringIO.StringIO(urllib.urlopen(filename).read())
+    let = Image.open(filename)
+    to = toFolder + str(newFn) + imType
+    let.save(to)
+
 # project the image onto a specific direction
 def project(img, direction):
     if direction == "x":
