@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from skimage import filters
 
 import urllib
-import cStringIO
+import io
 # import cv2
 from PIL import Image
 
@@ -13,7 +13,7 @@ from PIL import Image
 def readImg(filename, plotIt = False):
     # read in image file
     if "https://" in filename:
-        fil = cStringIO.StringIO(urllib.urlopen(filename).read())
+        fil = io.StringIO(urllib.urlopen(filename).read())
         let = Image.open(fil)
         grey = np.array(let.convert("LA"))[:,:,0]
         let = np.array(let)
