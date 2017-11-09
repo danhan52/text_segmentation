@@ -1,20 +1,20 @@
 import numpy as np
 from scipy import ndimage
 from scipy import misc
+from scipy.signal import argrelextrema
 import matplotlib.pyplot as plt
 from skimage import filters
 
-import urllib
-import io
-# import cv2
 from PIL import Image
+import requests
+from io import BytesIO
 
 # read in an image
 def readImg(filename, plotIt = False):
     # read in image file
     if "https://" in filename:
-        fil = io.StringIO(urllib.urlopen(filename).read())
-        let = Image.open(fil)
+        response = requests.get(filename)
+        let = Image.open(BytesIO(response.content))
         grey = np.array(let.convert("LA"))[:,:,0]
         let = np.array(let)
     else:

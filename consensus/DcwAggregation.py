@@ -554,7 +554,7 @@ def saveAggregatedData(lineGroupedTranscriptionLineDetails, aggregatedDataCsvFil
             row['huntington_id'],
             row['bestLineIndex'],
             '"' + cleanConsensusSentence + '"',
-            '(' + str(row['y1']) + ', ' + str(row['y2']),
+            '(' + str(row['y1']) + ', ' + str(row['y2']) + ')',
             [len(wordlist) for wordlist in row['words']['words']],
             # row['numLines'],
             row['url']))
