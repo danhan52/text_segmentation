@@ -12,14 +12,8 @@ from io import BytesIO
 # read in an image
 def readImg(filename, plotIt = False):
     # read in image file
-    if "https://" in filename:
-        response = requests.get(filename)
-        let = Image.open(BytesIO(response.content))
-        grey = np.array(let.convert("LA"))[:,:,0]
-        let = np.array(let)
-    else:
-        let = misc.imread(filename)
-        grey = misc.imread(filename, flatten=True)
+    let = skimio.imread(filename)
+    grey = skimcolor.rgb2gray(let)
 
     if plotIt:        
         plt.imshow(let)
@@ -31,11 +25,14 @@ def readImg(filename, plotIt = False):
 # save an image locally from online source
 def readAndSave(filename, toFolder, newFn, imType = ".jpg"):
     # read in image file
-    if "https://" in filename:
-        filename = cStringIO.StringIO(urllib.urlopen(filename).read())
-    let = Image.open(filename)
+    let = skimio.imread(filename)
     to = toFolder + str(newFn) + imType
     let.save(to)
+    return to
+
+# remove the edges from an image
+def removeEdges(grey):
+    pass
 
 # project the image onto a specific direction
 def project(img, direction):
