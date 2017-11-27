@@ -1,38 +1,7 @@
 import numpy as np
-from scipy import ndimage
-from scipy import misc
-from scipy.signal import argrelextrema
 import matplotlib.pyplot as plt
-from skimage import filters
 
-from PIL import Image
-import requests
-from io import BytesIO
-
-# read in an image
-def readImg(filename, plotIt = False):
-    # read in image file
-    let = skimio.imread(filename)
-    grey = skimcolor.rgb2gray(let)
-
-    if plotIt:        
-        plt.imshow(let)
-        plt.show()
-        plt.imshow(grey, cmap = "gray")
-        plt.show()
-    return let, grey
-
-# save an image locally from online source
-def readAndSave(filename, toFolder, newFn, imType = ".jpg"):
-    # read in image file
-    let = skimio.imread(filename)
-    to = toFolder + str(newFn) + imType
-    let.save(to)
-    return to
-
-# remove the edges from an image
-def removeEdges(grey):
-    pass
+from skimage import filters as skimfilt
 
 # project the image onto a specific direction
 def project(img, direction):
@@ -46,66 +15,92 @@ def project(img, direction):
     return proj
 
 # binarize an image
-def binarizeImg(img, biThresh, plotIt = False):
-    imgCp = img.copy()
-    if biThresh == "otsu":
-        biThresh = filters.threshold_otsu(imgCp)
-    inds = imgCp > biThresh
-    imgCp[inds] = 1
-    imgCp[np.logical_not(inds)] = 0
+def binarizeImg(img, threshFn = None, biThresh = None, greater = True, plotIt = False):
+    if threshFn is not None:
+        biThresh = threshFn(img)
+    elif biThresh is None:
+        biThresh = 0
+    if greater:
+        imgCp = img > biThresh
+    else:
+        imgCp = img < biThresh
+    
     if plotIt:
         plt.imshow(imgCp, cmap = "gray")
         plt.show()
     return imgCp
 
 # smooth an image
-def smoothImg(img, smoothSigma, plotIt = False):
-    imgCp = ndimage.filters.gaussian_filter(input=img, sigma=smoothSigma)
+def smoothImg(img, sigma, plotIt = False):
+    imgCp = skimfilt.gaussian(img, sigma=sigma, multichannel=False)
     if plotIt:
         plt.imshow(imgCp, cmap = "gray")
         plt.show()
     return imgCp
 
+# remove the edges from an image
+def removeEdges(grey, let, pageBlur, plotit = False):
+    level1Mask = binarizeImg(grey, skimfilt.threshold_triangle, greater=False)
+    blurredLevel1Mask = smoothImg(level1Mask, sigma=pageBlur)
 
-# functions for removing/whitening the edges of the image
-# remove all rows that are entirely black
-def removeEdges(imgCol, imgGr, rmThresh = 0):
-    imgGrCp = imgGr.copy()
-    imgColCp = imgCol.copy()
+    level2TrimLevels = ['hard', 'soft']
+    level2ThreshFn = {'hard' : skimfilt.threshold_yen,
+                       'soft' : skimfilt.threshold_mean}
+    level2Mask = { label : binarizeImg(blurredLevel1Mask, fn, greater=False)
+                  for label, fn in level2ThreshFn.items() }
+    xProjectedL2Mask = { label : project(mask, 'y')
+                        for label, mask in level2Mask.items() }
+    yProjectedL2Mask = { label : project(mask, 'x')
+                        for label, mask in level2Mask.items() }
+    level2TrimMask = {label : np.outer(xProjectedL2Mask[label], 
+                                       yProjectedL2Mask[label]) > 0
+                      for label in level2Mask.keys() }
+    level2TrimOffsets = {label : (np.nonzero(xProjectedL2Mask[label])[0][0],
+                                  np.nonzero(yProjectedL2Mask[label])[0][0])
+                         for label in level2Mask.keys() }
     
-    imgY = project(imgGrCp, "y")
-    imgGrCp = imgGrCp[imgY > rmThresh]
-    imgColCp = imgColCp[imgY > rmThresh]
+    greyTrimmed = {label : grey[mask].reshape(np.count_nonzero(xProjectedL2Mask[label]),
+                                               np.count_nonzero(yProjectedL2Mask[label]))
+                    for label, mask in level2TrimMask.items() }
+    letTrimmed = {label : let[mask].reshape(np.count_nonzero(xProjectedL2Mask[label]),
+                                            np.count_nonzero(yProjectedL2Mask[label]),
+                                            3)
+                  for label, mask in level2TrimMask.items() }
     
-    imgX = project(imgGrCp, "x")
-    imgGrCp = imgGrCp[:,imgX > rmThresh]
-    imgColCp = imgColCp[:,imgX > rmThresh]
-    return imgColCp, imgGrCp
+    def whiten(grey, mask):
+        greyCp = grey.copy()
+        greyCp[mask] = 255
+        return greyCp
+    greyWhitened = {label : whiten(grey, mask)
+                    for label, mask in level2TrimMask.items() }
+    otherInfo = {'level1Mask': level1Mask,
+                 'blurredLevel1Mask': blurredLevel1Mask, 
+                 'level2TrimLevels': level2TrimLevels,
+                 'level2Mask': level2Mask,
+                 'xProjectedL2Mask': xProjectedL2Mask, 
+                 'yProjectedL2Mask': yProjectedL2Mask,
+                 'level2TrimMask': level2TrimMask,
+                 'level2TrimOffsets': level2TrimOffsets,
+                 'greyWhitened': greyWhitened}
+    
+    if plotit:
+        # plot level 1
+        subjectFigure, subjectAxes = plt.subplots(figsize=(90, 60),
+                                                      ncols=2, nrows=1)
+        subjectAxes.flatten()[0].imshow(level1Mask, cmap = 'gray')
+        subjectAxes.flatten()[1].imshow(blurredLevel1Mask, cmap = 'gray')
+        plt.show()
 
-# whiten based on projection
-def whitenEdgesProject(grey):
-    grey2 = smoothImg(grey, smoothSigma=1.0)
-    brX = argrelextrema(project(grey2, "x"), np.greater_equal)[0]
-    brX = [brX[0], brX[-1]]
-    brY = argrelextrema(project(grey2, "y"), np.greater_equal)[0]
-    brY = [brY[0], brY[-1]]
-    greyCp = grey.copy()
-    greyCp[:,:brX[0]] = 255
-    greyCp[:,brX[1]:] = 255
-    greyCp[:brY[0]] = 255
-    greyCp[brY[1]:] = 255
-    return greyCp
-
-# use an edge filter
-def whitenEdgesFilter(grey):
-    grey2 = smoothImg(grey, smoothSigma=3.0)
-    grey2 = 1 - binarizeImg(grey2, "otsu")
-    labels, nrObj = ndimage.label(grey2)
-    nr, nc = grey.shape
-    wlabs = [labels[0, 0], labels[0, nc-1], labels[nr-1, 0],
-             labels[nr-1, nc-1]]
-    wlabs = np.unique(wlabs)
-    greyCp = grey.copy()
-    for la in wlabs:
-        greyCp[labels == la] = 255
-    return greyCp
+        # plot level 2
+        subjectFigure, subjectAxes = plt.subplots(figsize=(30, 20), ncols=3, nrows=2)
+        # soft
+        subjectAxes.flatten()[0].imshow(level2Mask['soft'], cmap = 'gray')
+        subjectAxes.flatten()[1].imshow(level2TrimMask['soft'], cmap = 'gray')
+        subjectAxes.flatten()[2].imshow(greyTrimmed['soft'], cmap = 'gray')
+        # hard
+        subjectAxes.flatten()[3].imshow(level2Mask['hard'], cmap = 'gray')
+        subjectAxes.flatten()[4].imshow(level2TrimMask['hard'], cmap = 'gray')
+        subjectAxes.flatten()[5].imshow(greyTrimmed['hard'], cmap = 'gray')
+        plt.show()
+        
+    return greyTrimmed, letTrimmed, otherInfo
