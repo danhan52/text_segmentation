@@ -1,5 +1,6 @@
 from skimage import io as skimio
 from skimage import color as skimcolor
+import matplotlib.pyplot as plt
 
 # read in an image
 def readImg(filename, plotIt = False):

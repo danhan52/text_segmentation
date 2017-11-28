@@ -28,7 +28,7 @@ def binarizeImg(img, threshFn = None, biThresh = None, greater = True, plotIt = 
     if plotIt:
         plt.imshow(imgCp, cmap = "gray")
         plt.show()
-    return imgCp
+    return imgCp, biThresh
 
 # smooth an image
 def smoothImg(img, sigma, plotIt = False):
@@ -40,13 +40,13 @@ def smoothImg(img, sigma, plotIt = False):
 
 # remove the edges from an image
 def removeEdges(grey, let, pageBlur, plotit = False):
-    level1Mask = binarizeImg(grey, skimfilt.threshold_triangle, greater=False)
+    level1Mask = binarizeImg(grey, skimfilt.threshold_triangle, greater=False)[0]
     blurredLevel1Mask = smoothImg(level1Mask, sigma=pageBlur)
 
     level2TrimLevels = ['hard', 'soft']
     level2ThreshFn = {'hard' : skimfilt.threshold_yen,
                        'soft' : skimfilt.threshold_mean}
-    level2Mask = { label : binarizeImg(blurredLevel1Mask, fn, greater=False)
+    level2Mask = { label : binarizeImg(blurredLevel1Mask, fn, greater=False)[0]
                   for label, fn in level2ThreshFn.items() }
     xProjectedL2Mask = { label : project(mask, 'y')
                         for label, mask in level2Mask.items() }
@@ -67,12 +67,6 @@ def removeEdges(grey, let, pageBlur, plotit = False):
                                             3)
                   for label, mask in level2TrimMask.items() }
     
-    def whiten(grey, mask):
-        greyCp = grey.copy()
-        greyCp[mask] = 255
-        return greyCp
-    greyWhitened = {label : whiten(grey, mask)
-                    for label, mask in level2TrimMask.items() }
     otherInfo = {'level1Mask': level1Mask,
                  'blurredLevel1Mask': blurredLevel1Mask, 
                  'level2TrimLevels': level2TrimLevels,
@@ -80,8 +74,7 @@ def removeEdges(grey, let, pageBlur, plotit = False):
                  'xProjectedL2Mask': xProjectedL2Mask, 
                  'yProjectedL2Mask': yProjectedL2Mask,
                  'level2TrimMask': level2TrimMask,
-                 'level2TrimOffsets': level2TrimOffsets,
-                 'greyWhitened': greyWhitened}
+                 'level2TrimOffsets': level2TrimOffsets}
     
     if plotit:
         # plot level 1

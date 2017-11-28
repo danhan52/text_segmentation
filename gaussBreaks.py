@@ -27,15 +27,17 @@ def gaussBreaks(chunk, nu=3.5, biThresh=2, shear=0.6, fix=15, plotIt=False):
     for j in range(len(sigYs)):
         filt = gf(input=chunk, sigma=(sigYs[j],sigXs[j]), order=0)
         if count < biThresh:
-            th = skimfilt.threshold_otsu(filt)
+            binfilt, th = binarizeImg(filt, skimfilt.threshold_otsu)
             count += 1
-        binfilt = binarizeImg(filt, biThresh=th)
+        else:
+            binfilt, _ = binarizeImg(filt, biThresh=th)
         extents.append(np.sum(binfilt))
     j = np.argmin(extents)
     
-    filt = ndimage.filters.gaussian_filter(input=chunk, sigma=(sigYs[j],sigXs[j]))
-    binfilt = 1 - binarizeImg(filt, biThresh=th)
-
+    filt = gf(input=chunk, sigma=(sigYs[j],sigXs[j]))
+    binfilt, _ = binarizeImg(filt, biThresh=th)
+    binfilt = 1 - binfilt
+    
     # find connect components
     labels, nrObj = ndimage.label(binfilt)
     osli = ndimage.find_objects(labels)
