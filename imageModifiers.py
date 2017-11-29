@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from skimage import filters as skimfilt
+from scipy.ndimage import label as sci_lab
 
 # project the image onto a specific direction
 def project(img, direction):
@@ -43,42 +44,33 @@ def removeEdges(grey, let, pageBlur, plotit = False):
     level1Mask = binarizeImg(grey, skimfilt.threshold_triangle, greater=False)[0]
     blurredLevel1Mask = smoothImg(level1Mask, sigma=pageBlur)
 
-    level2TrimLevels = ['hard', 'soft']
-    level2ThreshFn = {'hard' : skimfilt.threshold_yen,
-                       'soft' : skimfilt.threshold_mean}
-    level2Mask = { label : binarizeImg(blurredLevel1Mask, fn, greater=False)[0]
-                  for label, fn in level2ThreshFn.items() }
-    xProjectedL2Mask = { label : project(mask, 'y')
-                        for label, mask in level2Mask.items() }
-    yProjectedL2Mask = { label : project(mask, 'x')
-                        for label, mask in level2Mask.items() }
-    level2TrimMask = {label : np.outer(xProjectedL2Mask[label], 
-                                       yProjectedL2Mask[label]) > 0
-                      for label in level2Mask.keys() }
-    level2TrimOffsets = {label : (np.nonzero(xProjectedL2Mask[label])[0][0],
-                                  np.nonzero(yProjectedL2Mask[label])[0][0])
-                         for label in level2Mask.keys() }
-    
-    greyTrimmed = {label : grey[mask].reshape(np.count_nonzero(xProjectedL2Mask[label]),
-                                               np.count_nonzero(yProjectedL2Mask[label]))
-                    for label, mask in level2TrimMask.items() }
-    letTrimmed = {label : let[mask].reshape(np.count_nonzero(xProjectedL2Mask[label]),
-                                            np.count_nonzero(yProjectedL2Mask[label]),
-                                            3)
-                  for label, mask in level2TrimMask.items() }
-    
-    otherInfo = {'level1Mask': level1Mask,
-                 'blurredLevel1Mask': blurredLevel1Mask, 
-                 'level2TrimLevels': level2TrimLevels,
-                 'level2Mask': level2Mask,
-                 'xProjectedL2Mask': xProjectedL2Mask, 
-                 'yProjectedL2Mask': yProjectedL2Mask,
-                 'level2TrimMask': level2TrimMask,
-                 'level2TrimOffsets': level2TrimOffsets}
+    # only do the "soft" trim from Hugh's code
+    level2Mask = binarizeImg(blurredLevel1Mask, skimfilt.threshold_mean, greater=False)[0]
+    xProjectedL2Mask = project(level2Mask, 'y')
+    yProjectedL2Mask = project(level2Mask, 'x')
+    level2TrimMask = np.outer(xProjectedL2Mask, yProjectedL2Mask) > 0
+
+    # find the blob in the center: should be the letter
+    labels, nrObj = sci_lab(level2TrimMask)
+    nr, nc = grey.shape
+    center_label = labels[int(nr/2.0), int(nc/2.0)]
+    level2TrimMask[labels != center_label] = 0
+
+    # reproject with just letter
+    xProj2 = project(level2TrimMask, 'y')
+    yProj2 = project(level2TrimMask, 'x')
+
+    level2TrimOffsets = (np.nonzero(xProj2)[0][0], 
+                         np.nonzero(yProj2)[0][0])
+
+    x_count = np.count_nonzero(xProj2)
+    y_count = np.count_nonzero(yProj2)
+    greyTrimmed = grey[level2TrimMask].reshape(x_count, y_count)
+    letTrimmed = let[level2TrimMask].reshape(x_count, y_count, 3)
     
     if plotit:
         # plot level 1
-        subjectFigure, subjectAxes = plt.subplots(figsize=(90, 60),
+        subjectFigure, subjectAxes = plt.subplots(figsize=(30, 20),
                                                       ncols=2, nrows=1)
         subjectAxes.flatten()[0].imshow(level1Mask, cmap = 'gray')
         subjectAxes.flatten()[1].imshow(blurredLevel1Mask, cmap = 'gray')
@@ -86,14 +78,9 @@ def removeEdges(grey, let, pageBlur, plotit = False):
 
         # plot level 2
         subjectFigure, subjectAxes = plt.subplots(figsize=(30, 20), ncols=3, nrows=2)
-        # soft
-        subjectAxes.flatten()[0].imshow(level2Mask['soft'], cmap = 'gray')
-        subjectAxes.flatten()[1].imshow(level2TrimMask['soft'], cmap = 'gray')
-        subjectAxes.flatten()[2].imshow(greyTrimmed['soft'], cmap = 'gray')
-        # hard
-        subjectAxes.flatten()[3].imshow(level2Mask['hard'], cmap = 'gray')
-        subjectAxes.flatten()[4].imshow(level2TrimMask['hard'], cmap = 'gray')
-        subjectAxes.flatten()[5].imshow(greyTrimmed['hard'], cmap = 'gray')
+        subjectAxes.flatten()[0].imshow(level2Mask, cmap = 'gray')
+        subjectAxes.flatten()[1].imshow(level2TrimMask, cmap = 'gray')
+        subjectAxes.flatten()[2].imshow(greyTrimmed, cmap = 'gray')
         plt.show()
         
-    return greyTrimmed, letTrimmed, otherInfo
+    return greyTrimmed, letTrimmed, level2TrimOffsets
