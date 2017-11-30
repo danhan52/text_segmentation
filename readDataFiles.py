@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 import json
 
@@ -66,3 +67,28 @@ def mergeSubjAndCons(subj, cons, clExp=None):
         telegrams = telegrams.loc[telegrams['hdl_id'].isin(clExp['hdl_id'])]
     
     return idAndUrl, telegrams
+
+# get the slope information from the classification export
+def meanSlope(clExp, hdl_id):
+    curClExp = clExp.loc[clExp['hdl_id'] == hdl_id, 'annotations']
+    curClExp = [json.loads(i) for i in curClExp]
+    slopes = []
+    for item in curClExp:
+        if item[0]['value'] == 'No':
+            continue
+        for val in item[1]['value']:
+            x1 = val['x1']
+            x2 = val['x2']
+            y1 = val['y1']
+            y2 = val['y2']
+            if x1 > x2:
+                x1, x2 = x2, x1
+                y1, y2 = y2, y1
+            slope = 1.0 * (y2 - y1)/(x2 - x1)
+            slopes.append(slope)
+
+    # only keep slopes that aren't too different
+    mn = np.mean(slopes)
+    sd = np.std(slopes)
+    slopes = [x for x in slopes if x > mn-sd and x < mn+sd]
+    return np.mean(slopes)
