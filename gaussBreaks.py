@@ -9,7 +9,8 @@ from skimage import filters as skimfilt
 from imageModifiers import *
 
 
-def gaussBreaks(chunk, nu=3.5, biThresh=2, shear=0.6, fix=15, plotIt=False):
+def gaussBreaks(chunk, nu=3.5, biThresh=2, shear=0.6, fix=15, order=0, plotIt=False,
+               threshFn = skimfilt.threshold_otsu):
     # get smoothing factors
     sigYs = np.arange(1, 8, 0.3)
     sigXs = sigYs * nu
@@ -25,9 +26,9 @@ def gaussBreaks(chunk, nu=3.5, biThresh=2, shear=0.6, fix=15, plotIt=False):
     extents = []
     count = 0
     for j in range(len(sigYs)):
-        filt = gf(input=chunk, sigma=(sigYs[j],sigXs[j]), order=0)
+        filt = gf(input=chunk, sigma=(sigYs[j],sigXs[j]), order=order)
         if count < biThresh:
-            binfilt, th = binarizeImg(filt, skimfilt.threshold_otsu)
+            binfilt, th = binarizeImg(filt, threshFn)
             count += 1
         else:
             binfilt, _ = binarizeImg(filt, biThresh=th)
@@ -65,7 +66,7 @@ def gaussBreaks(chunk, nu=3.5, biThresh=2, shear=0.6, fix=15, plotIt=False):
     for i in range(1, len(bounds)):
         bCur = bounds[i]
         if bPrev[1] > bCur[0]:
-            bPrev = [bPrev[0], bCur[1]]
+            bPrev = [bPrev[0], max(bCur[1], bPrev[1])]
         else:
             newbounds.append(bPrev)
             bPrev = [x for x in bCur]
