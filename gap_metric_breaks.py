@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import ndimage
 
+import skimage.filters as skimfilt
 from skimage.morphology import convex_hull_object
 from skimage.morphology import convex_hull_image
 from skimage.measure import find_contours
@@ -9,9 +10,11 @@ from skimage.measure import find_contours
 from scipy.ndimage.measurements import center_of_mass
 from shapely.geometry import LineString
 
-def getGapDistances(chunk, plotit=False):
+from imageModifiers import binarizeImg
+
+def getGapDistances(chunk, edgeThresh=0.1, sizeThresh=10, plotIt=False):
     chunkBi, _ = binarizeImg(chunk, threshFn=skimfilt.threshold_otsu, 
-                             greater=False, plotIt=True)
+                             greater=False, plotIt=plotIt)
     
     # get convex hulls of connected components
     chunk_hull = convex_hull_object(chunkBi, neighbors=4)
@@ -23,7 +26,6 @@ def getGapDistances(chunk, plotit=False):
 
     # Remove all objects touching the top and bottom that have a 
     # center of mass also close to the top or bottom.
-    edgeThresh = 0.1
     centers = center_of_mass(chunk_hull, chunk_hull_labels, range(1, nrObj+1))
     thresh_top = nrow*edgeThresh
     thresh_bot = nrow - nrow*edgeThresh
@@ -44,7 +46,6 @@ def getGapDistances(chunk, plotit=False):
 
     
     # Remove all objects that are just absolutely tiny
-    sizeThresh = 10
     labs = np.unique(chunk_hull_labels)
     for lab in labs:
         size = np.sum(chunk_hull_labels == lab)
@@ -88,15 +89,11 @@ def getGapDistances(chunk, plotit=False):
     
 
     
-    if plotit:
+    if plotIt:
         plt.imshow(chunk_hull, cmap="gray")
-        plt.show()
-        plt.imshow(chunk_hull_labels, cmap="nipy_spectral")
-        plt.show()
-        plt.imshow(chunk_hull_labels, cmap="nipy_spectral")
         plt.show()
         plt.imshow(chunk_hull_labels, cmap="nipy_spectral")
         plt.plot([x[1] for x in centers], [y[0] for y in centers], "ro")
         plt.show()
 
-    
+    return distances, chunk_hull_labels
