@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 from matplotlib.patches import Rectangle as Rec
 from skimage import filters as skimfilt
-from imageModifiers import *
+from segmentation.imageModifiers import *
 
 
 def gaussBreaks(chunk, nu=3.5, biThresh=2, shear=0.6, fix=15, order=0, plotIt=False,

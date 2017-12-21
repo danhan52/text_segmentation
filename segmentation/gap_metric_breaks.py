@@ -7,10 +7,12 @@ from skimage.morphology import convex_hull_object
 from skimage.morphology import convex_hull_image
 from skimage.measure import find_contours
 
+from sklearn.mixture import GaussianMixture
+
 from scipy.ndimage.measurements import center_of_mass
 from shapely.geometry import LineString
 
-from imageModifiers import binarizeImg
+from segmentation.imageModifiers import binarizeImg
 
 def getGapDistances(chunk, edgeThresh=0.1, sizeThresh=10, plotIt=False):
     chunkBi, _ = binarizeImg(chunk, threshFn=skimfilt.threshold_otsu, 
@@ -78,6 +80,7 @@ def getGapDistances(chunk, edgeThresh=0.1, sizeThresh=10, plotIt=False):
     contours = [contours[o] for o in order]
 
     distances = []
+    break_centers = []
     for j in range(len(contours)-1):
         obj1 = LineString(contours[j])
         obj2 = LineString(contours[j+1])
@@ -86,7 +89,12 @@ def getGapDistances(chunk, edgeThresh=0.1, sizeThresh=10, plotIt=False):
         edge1 = obj1.intersection(center_dist)
         edge2 = obj2.intersection(center_dist)
         distances.append(edge1.distance(edge2))
-    
+        
+        try:
+            break_centers.append(LineString([edge1, edge2]).centroid.coords[0][1])
+        except:
+            break_centers.append(0)
+    distances = np.array(distances, ndmin=2).T
 
     
     if plotIt:
@@ -96,4 +104,20 @@ def getGapDistances(chunk, edgeThresh=0.1, sizeThresh=10, plotIt=False):
         plt.plot([x[1] for x in centers], [y[0] for y in centers], "ro")
         plt.show()
 
-    return distances, chunk_hull_labels
+    return distances, chunk_hull_labels, break_centers
+
+def gapBreaks(chunk):
+    g_dist, chhul, brc = getGapDistances(chunk)
+    
+    # create a gaussian mixture model to split data into
+    # inter and intra-word splits
+    gmm = GaussianMixture(n_components=2)
+    gmm.fit(g_dist)
+
+    # get groups
+    cl = gmm.predict(g_dist).astype("bool")
+    if np.mean(g_dist[cl,]) < np.mean(g_dist[np.logical_not(cl)]):
+        cl = np.logical_not(cl)
+
+    br = [brc[i] for i in range(len(cl)) if cl[i]]
+    return br

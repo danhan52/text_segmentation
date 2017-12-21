@@ -38,3 +38,14 @@ def plotBoxes(img, lb, wb = [], cb = [], cmap = None, saveFile = None):
         plt.close()
     else:
         plt.show()
+    return
+
+# just a shortcut for plotting
+def plquick(img, cmap="nipy_spectral", figsize=None):
+    if figsize is None:
+        plt.imshow(img, cmap=cmap)
+    else:
+        fig, ax = plt.subplots(figsize=figsize)
+        ax.imshow(img, cmap=cmap)
+    plt.show()
+    

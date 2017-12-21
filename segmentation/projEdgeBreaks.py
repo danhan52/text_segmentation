@@ -4,7 +4,7 @@ from operator import itemgetter
 from itertools import groupby
 import numpy as np
 
-from imageModifiers import project
+from segmentation.imageModifiers import project
 
 
 # get breaks based on projection

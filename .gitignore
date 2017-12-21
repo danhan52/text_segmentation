@@ -1,4 +1,6 @@
-data/*
+data_in/*
+data_out/*
+*_img/*
 *.csv
 *.jpg
 *.jpeg
